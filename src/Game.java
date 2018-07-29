@@ -1,26 +1,21 @@
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.KeyListener;
-import java.awt.event.KeyEvent;
-import java.awt.geom.AffineTransform;
+import java.awt.event.*;
 import java.awt.geom.Rectangle2D;
-import java.awt.image.AffineTransformOp;
-import java.awt.image.BufferedImage;
 import java.io.*;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class Game extends JFrame implements ActionListener {
 	private static String[] diff = {"Easy", "Normal", "Hard", "Animisa", "Two Peeps"};
 	private static ImageIcon icon = new ImageIcon("snek.png");
+	private static boolean reverse = false;
 
 	static final int WIDTH = 640;
 	static final int HEIGHT = 480;
 	static final int SSIZE = 10;
+	static final int GRAV = 10;
 
 	private Snake p = new Snake();
 	private Timer t = new Timer(60, this);
@@ -29,7 +24,6 @@ public class Game extends JFrame implements ActionListener {
 		getContentPane().setBackground(Color.WHITE);
 		t.setActionCommand("Not");
 		t.setDelay(difficulty(difficulty));
-
 		play();
 	}
 
@@ -54,53 +48,39 @@ public class Game extends JFrame implements ActionListener {
 	}
 
 	private int difficulty(String d) {
-		if (d.equals(diff[0])) {
-			addKeyListener(new KeyAdapter());
-			return 60;
-		} else if (d.equals(diff[1])) {
-			addKeyListener(new KeyAdapter());
-			return 30;
-		} else if (d.equals(diff[2])) {
-			addKeyListener(new RKeyAdapter());
-			return 60;
+		int r;
+
+		if (d.equals(diff[0]))
+			r = 60;
+		else if (d.equals(diff[1]))
+			r = 60;
+		else if (d.equals(diff[2])) {
+			reverse = true;
+			r = 30;
 		} else if (d.equals(diff[3])) {
-			addKeyListener(new KeyAdapter());
 			p = new Snake(true);
-			return 60;
+			r = 60;
 		} else {
-			addKeyListener(new KeyAdapter());
 			p = new Snake(0);
 			t.setActionCommand("Two Player");
-			return 60;
+			r = 60;
 		}
+		addKeyListener(new KeyAdapter());
+		return r;
 	}
 
 	static class Snake extends JComponent {
-		final int GRAV = 10;
 
-		boolean gameOver = false, on = false, too = false;
-		int size = 0, size2 = 0;
+		boolean gameOver, on, too;
 		String winner = "";
-		boolean pressedE = false;
-		boolean pressed1 = false;
-		BufferedImage fire;
 
-		ArrayList<Rectangle2D.Double> snek = new ArrayList<>();
-		ArrayList<Rectangle2D.Double> snek2 = new ArrayList<>();
-
+		SnakeRect snek = new SnakeRect(), snek2 = new SnakeRect();
 		Module piece = new Module();
 		ArrayList<Module> obstacles = new ArrayList<>(100);
-		Direction dir = Direction.DOWN;
-		Direction dir2 = Direction.UP;
 
 		public Snake() {
 			setPreferredSize(new Dimension(SSIZE, SSIZE));
 			snek.add(new Rectangle2D.Double(100, 100, SSIZE, SSIZE));
-			try {
-				fire = ImageIO.read(new URL("https://upload.wikimedia.org/wikipedia/en/9/93/Tanooki_Mario.jpg"));
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
 		}
 
 		public Snake(boolean turn) {
@@ -114,6 +94,25 @@ public class Game extends JFrame implements ActionListener {
 			if (two == 0) snek2.add(new Rectangle2D.Double(150, 100, SSIZE, SSIZE));
 			too = true;
 		}
+
+		public void checkSnekCollide() {
+			if (snek.size == snek2.size) return;
+			for (int i = 0; i <= snek.size; i++) {
+				for (int j = 0; j <= snek2.size; j++) {
+					boolean inter = snek.get(i).intersects(snek2.get(j));
+					if (inter && snek.size > snek2.size) {
+						gameOver = true;
+						winner = "PLAYER 1 WINS!!!!!!!!!!";
+						return;
+					} else if (inter && snek2.size > snek.size) {
+						gameOver = true;
+						winner = "PLAYER 2 WINS!!!!!!!!!!";
+						return;
+					}
+				}
+			}
+		}
+
 
 		@Override
 		protected void paintComponent(Graphics g) {
@@ -144,17 +143,17 @@ public class Game extends JFrame implements ActionListener {
 
 				highscore = Integer.parseInt(sb.toString());
 
-				if (size > highscore) {
-					highscore = size;
+				if (snek.size > highscore) {
+					highscore = snek.size;
 
 					try (BufferedWriter write = new BufferedWriter(new FileWriter(file))) {
-						write.write("" + size + "\n");
+						write.write("" + snek.size + "\n");
 					} catch (IOException e) {
 						e.printStackTrace();
 					}
 				}
 
-				String message = "GAME OVER LOSER", score = "SCORE: " + size, high = "HIGHSCORE: " + highscore;
+				String message = "GAME OVER LOSER", score = "SCORE: " + snek.size, high = "HIGHSCORE: " + highscore;
 
 				g.setColor(Color.PINK);
 				g.setFont(new Font("Calibri", Font.BOLD, 20));
@@ -166,14 +165,6 @@ public class Game extends JFrame implements ActionListener {
 			Graphics2D g2 = (Graphics2D) g;
 
 			g2.setColor(Color.black);
-			if (pressedE)
-				g2.drawImage(fire, new AffineTransformOp(new AffineTransform(1/8, 0, 1/8, 0, 0, 0),
-						AffineTransformOp.TYPE_NEAREST_NEIGHBOR), 100, 100);
-
-			if (pressed1) {
-				g2.drawString("Christos is a poop", ThreadLocalRandom.current().nextInt(50, Game.WIDTH - 50),
-						ThreadLocalRandom.current().nextInt(50, Game.HEIGHT - 50));
-			}
 
 			for (int i = 0; i < snek.size(); i++) {
 				Rectangle2D.Double r = snek.get(i);
@@ -181,7 +172,7 @@ public class Game extends JFrame implements ActionListener {
 				//g2.setColor(new Color((int) (Math.random() * 255), (int) (Math.random() * 255), (int) (Math.random() * 255)));
 				g2.fill(r);
 			}
-			if (too) {
+			if (snek2 != null) {
 				for (Rectangle2D.Double r : snek2) {
 					g2.setColor(Color.cyan);
 					g2.fill(r);
@@ -193,200 +184,91 @@ public class Game extends JFrame implements ActionListener {
 				m.draw(g2, Color.blue);
 		}
 
-		private void move() {
-			Rectangle2D.Double prev = snek.get(0);
+		class SnakeRect extends ArrayList<Rectangle2D.Double> {
+			Direction dir = Direction.DOWN;
+			int size;
 
-			for (int index = 0; index <= size; index++) {
-				if (index == 0) {
-					switch (dir) {
-						case DOWN:
-							snek.set(index, new Rectangle2D.Double((prev.getX()) % Game.WIDTH, (prev.getY() + GRAV) % Game.HEIGHT, SSIZE, SSIZE));
-							break;
+			private void move() {
+				Rectangle2D.Double prev = get(0);
+				switch (dir) {
+					case DOWN:
+						set(0, new Rectangle2D.Double((prev.getX()) % Game.WIDTH, (prev.getY() + GRAV) % Game.HEIGHT, SSIZE, SSIZE));
+						break;
 
-						case LEFT:
-							int x = (int) (prev.getX() - GRAV);
-							if (x < 0)
-								x = Game.WIDTH;
+					case LEFT:
+						int x = (int) (prev.getX() - GRAV);
+						if (x < 0)
+							x = Game.WIDTH;
 
-							snek.set(index, new Rectangle2D.Double(x, (prev.getY()) % Game.HEIGHT, SSIZE, SSIZE));
-							break;
+						set(0, new Rectangle2D.Double(x, (prev.getY()) % Game.HEIGHT, SSIZE, SSIZE));
+						break;
 
-						case RIGHT:
-							snek.set(index, new Rectangle2D.Double((prev.getX() + GRAV) % Game.WIDTH, (prev.getY()) % Game.HEIGHT, SSIZE, SSIZE));
-							break;
+					case RIGHT:
+						set(0, new Rectangle2D.Double((prev.getX() + GRAV) % Game.WIDTH, (prev.getY()) % Game.HEIGHT, SSIZE, SSIZE));
+						break;
 
-						case UP:
-							int y = (int) (prev.getY() - GRAV);
-							if (y < 0)
-								y = Game.HEIGHT;
-							snek.set(index, new Rectangle2D.Double((prev.getX()) % Game.WIDTH, y, SSIZE, SSIZE));
-							break;
-					}
-					checkModule();
-					checkCollision();
-				} else {
+					case UP:
+						int y = (int) (prev.getY() - GRAV);
+						if (y < 0)
+							y = Game.HEIGHT;
+						set(0, new Rectangle2D.Double((prev.getX()) % Game.WIDTH, y, SSIZE, SSIZE));
+						break;
+				}
+				checkModule();
+				checkCollision();
+
+				for (int index = 1; index <= size; index++) {
 					Rectangle2D.Double good = prev;
-					prev = snek.get(index);
-					snek.set(index, good);
-				}
-			}
-		}
-
-		private void move2() {
-			Rectangle2D.Double prev = snek2.get(0);
-
-			for (int index = 0; index <= size2; index++) {
-				if (index == 0) {
-					switch (dir2) {
-						case DOWN:
-							snek2.set(index, new Rectangle2D.Double((prev.getX()) % Game.WIDTH, (prev.getY() + GRAV) % Game.HEIGHT, SSIZE, SSIZE));
-							break;
-
-						case LEFT:
-							int x = (int) (prev.getX() - GRAV);
-							if (x < 0)
-								x = Game.WIDTH;
-
-							snek2.set(index, new Rectangle2D.Double(x, (prev.getY()) % Game.HEIGHT, SSIZE, SSIZE));
-							break;
-
-						case RIGHT:
-							snek2.set(index, new Rectangle2D.Double((prev.getX() + GRAV) % Game.WIDTH, (prev.getY()) % Game.HEIGHT, SSIZE, SSIZE));
-							break;
-
-						case UP:
-							int y = (int) (prev.getY() - GRAV);
-							if (y < 0)
-								y = Game.HEIGHT;
-							snek2.set(index, new Rectangle2D.Double((prev.getX()) % Game.WIDTH, y, SSIZE, SSIZE));
-							break;
-					}
-					checkModule2();
-					checkCollision2();
-				} else {
-					Rectangle2D.Double good = prev;
-					prev = snek2.get(index);
-					snek2.set(index, good);
-				}
-			}
-		}
-
-		private void checkModule2() {
-			if (snek2.get(0).intersects(piece)) {
-				addModule2();
-				piece = new Module();
-			}
-		}
-
-		private void addModule2() {
-			Rectangle2D.Double last = snek2.get(size2);
-			snek2.add(last);
-			size2++;
-			if (on) obstacles.add(new Module());
-		}
-
-		private void checkCollision2() {
-			Rectangle2D.Double head = snek2.get(0);
-			for (int i = 1; i < size2; i++) {
-				if (head.intersects(snek2.get(i))) {
-					gameOver = true;
-					winner = "PLAYER 1 WINS";
-					break;
+					prev = get(index);
+					set(index, good);
 				}
 			}
 
-			gameOver = gameOver || checkObstacles2();
-		}
 
-		private void checkSnekCollide() {
-			if (size == size2) return;
-			for (int i = 0; i <= size; i++) {
-				for (int j = 0; j <= size2; j++) {
-					boolean inter = snek.get(i).intersects(snek2.get(j));
-					if (inter && size > size2) {
+			private void checkModule() {
+				if (get(0).intersects(piece)) {
+					addModule();
+					piece = new Module();
+				}
+			}
+
+			private void addModule() {
+				Rectangle2D.Double last = get(size);
+				add(last);
+				size++;
+				if (on) obstacles.add(new Module());
+			}
+
+			private void changeDir(Direction d) {
+				if (size > 0 && Direction.getOpposite(d) == dir)
+					return;
+
+				if (d == dir)
+					return;
+				dir = d;
+			}
+
+			private void checkCollision() {
+				Rectangle2D.Double head = get(0);
+				for (int i = 1; i < size; i++) {
+					if (head.intersects(get(i))) {
 						gameOver = true;
-						winner = "PLAYER 1 WINS!!!!!!!!!!";
-						return;
-					} else if (inter && size2 > size) {
-						gameOver = true;
-						winner = "PLAYER 2 WINS!!!!!!!!!!";
-						return;
+						winner = "PLAYER 2 WINS";
+						break;
 					}
 				}
-			}
-		}
 
-		private boolean checkObstacles2() {
-			if (!on) return false;
-			Rectangle2D.Double head = snek2.get(0);
-
-			for (Module m : obstacles)
-				if (head.intersects(m)) return true;
-
-			return false;
-		}
-
-		private void checkModule() {
-			if (snek.get(0).intersects(piece)) {
-				addModule();
-				piece = new Module();
-			}
-		}
-
-		private void checkCollision() {
-			Rectangle2D.Double head = snek.get(0);
-			for (int i = 1; i < size; i++) {
-				if (head.intersects(snek.get(i))) {
-					gameOver = true;
-					winner = "PLAYER 2 WINS";
-					break;
-				}
+				gameOver = gameOver || checkObstacles();
 			}
 
-			gameOver = gameOver || checkObstacles();
-		}
+			private boolean checkObstacles() {
+				if (!on) return false;
+				Rectangle2D.Double head = snek.get(0);
 
-		private boolean checkObstacles() {
-			if (!on) return false;
-			Rectangle2D.Double head = snek.get(0);
+				for (Module m : obstacles)
+					if (head.intersects(m)) return true;
 
-			for (Module m : obstacles)
-				if (head.intersects(m)) return true;
-
-			return false;
-		}
-
-		private void addModule() {
-			Rectangle2D.Double last = snek.get(size);
-			snek.add(last);
-			size++;
-			if (on) obstacles.add(new Module());
-		}
-
-		private void changeDir(Direction d) {
-			if (size > 0 && d.isOpposite(dir)) {
-				return;
-			}
-			if (d == dir)
-				return;
-			dir = d;
-		}
-
-		private void changeDir2(Direction d) {
-			if (size2 > 0 && d.isOpposite(dir2)) {
-				return;
-			}
-			if (d == dir2)
-				return;
-			dir2 = d;
-		}
-
-		public void send(int key) {
-			if (key == KeyEvent.VK_1) {
-				pressed1 = !pressed1;
-			}
-			if (key == KeyEvent.VK_ENTER) {
-				pressedE = !pressedE;
+				return false;
 			}
 		}
 	}
@@ -415,84 +297,49 @@ public class Game extends JFrame implements ActionListener {
 		public void keyPressed(KeyEvent k) {
 			int key = k.getKeyCode();
 
-			if (key == KeyEvent.VK_UP)
-				p.changeDir(Direction.UP);
+			Direction dir = Direction.DEFAULT;
+			Snake.SnakeRect ps = k.isActionKey() ? p.snek : p.snek2;
+			switch (key) {
+				case KeyEvent.VK_UP:
+				case KeyEvent.VK_W:
+					dir = Direction.UP;
+					break;
+				case KeyEvent.VK_LEFT:
+				case KeyEvent.VK_A:
+					dir = Direction.LEFT;
+					break;
+				case KeyEvent.VK_RIGHT:
+				case KeyEvent.VK_D:
+					dir = Direction.RIGHT;
+					break;
+				case KeyEvent.VK_DOWN:
+				case KeyEvent.VK_S:
+					dir = Direction.DOWN;
+					break;
+				case KeyEvent.VK_SPACE:
+					if (t.isRunning()) t.stop();
+					else t.start();
+			}
+			if (reverse) dir = Direction.getOpposite(dir);
 
-			else if (key == KeyEvent.VK_LEFT)
-				p.changeDir(Direction.LEFT);
-
-			else if (key == KeyEvent.VK_RIGHT)
-				p.changeDir(Direction.RIGHT);
-
-			else if (key == KeyEvent.VK_DOWN)
-				p.changeDir(Direction.DOWN);
-
-			else if (key == KeyEvent.VK_SPACE)
-				if (t.isRunning()) t.stop();
-				else t.start();
-
-			else if (key == KeyEvent.VK_W)
-				p.changeDir2(Direction.UP);
-
-			else if (key == KeyEvent.VK_A)
-				p.changeDir2(Direction.LEFT);
-
-			else if (key == KeyEvent.VK_D)
-				p.changeDir2(Direction.RIGHT);
-
-			else if (key == KeyEvent.VK_S)
-				p.changeDir2(Direction.DOWN);
-			//p.fuckEverything();
+			ps.changeDir(dir);
 		}
 
 		@Override
 		public void keyReleased(KeyEvent e) {
-
 		}
 
 		@Override
 		public void keyTyped(KeyEvent e) {
-
-		}
-	}
-
-	public class RKeyAdapter implements KeyListener {
-		@Override
-		public void keyTyped(KeyEvent e) {
-
 		}
 
-		@Override
-		public void keyPressed(KeyEvent k) {
-			int key = k.getKeyCode();
-
-			if (key == KeyEvent.VK_UP)
-				p.changeDir(Direction.DOWN);
-
-			else if (key == KeyEvent.VK_LEFT)
-				p.changeDir(Direction.RIGHT);
-
-			else if (key == KeyEvent.VK_RIGHT)
-				p.changeDir(Direction.LEFT);
-
-			else if (key == KeyEvent.VK_DOWN)
-				p.changeDir(Direction.UP);
-
-			else if (key == KeyEvent.VK_ENTER || key == KeyEvent.VK_1)
-				p.send(key);
-		}
-
-		@Override
-		public void keyReleased(KeyEvent e) {
-
-		}
 	}
 
 	@Override
 	public void actionPerformed(ActionEvent e) {
-		p.move();
+		p.snek.move();
 		if (e.getActionCommand().equals("Two Player")) {
-			p.move2();
+			p.snek2.move();
 			p.checkSnekCollide();
 		}
 		p.repaint();

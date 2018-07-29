@@ -1,27 +1,19 @@
 public enum Direction {
-	UP, DOWN, LEFT, RIGHT;
+	UP, DOWN, LEFT, RIGHT, DEFAULT;
 
-	public boolean isOpposite(Direction d) {
-		boolean result = false;
-
-		switch (this) {
+	public static Direction getOpposite(Direction d) {
+		switch (d) {
 			case DOWN:
-				result = d == Direction.UP;
-				break;
+				return Direction.UP;
 
 			case LEFT:
-				result = d == Direction.RIGHT;
-				break;
+				return Direction.RIGHT;
 
 			case RIGHT:
-				result = d == Direction.LEFT;
-				break;
+				return Direction.LEFT;
 
-			case UP:
-				result = d == Direction.DOWN;
-				break;
+			default:
+				return Direction.DOWN;
 		}
-
-		return result;
 	}
 }

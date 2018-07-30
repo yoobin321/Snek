@@ -100,14 +100,23 @@ public class Game extends JFrame implements ActionListener {
 			for (int i = 0; i <= snek.size; i++) {
 				for (int j = 0; j <= snek2.size; j++) {
 					boolean inter = snek.get(i).intersects(snek2.get(j));
-					if (inter && snek.size > snek2.size) {
-						gameOver = true;
-						winner = "PLAYER 1 WINS!!!!!!!!!!";
-						return;
-					} else if (inter && snek2.size > snek.size) {
-						gameOver = true;
-						winner = "PLAYER 2 WINS!!!!!!!!!!";
-						return;
+					if (inter) {
+						winner = "PLAYER " + (snek.size > snek2.size ? "1" : "2") + "WINS!!!!!!!!!!";
+						if (i == 0 && j == 0) {
+							gameOver = true;
+							return;
+						}
+						if (snek.size > snek2.size) {
+							for (int x = snek2.size() - 1; x >= j; x--) snek2.remove(x);
+							snek2.size = snek2.size() - 1;
+							if (snek2.size == 0) gameOver = true;
+							return;
+						} else if (snek2.size > snek.size) {
+							for (int x = snek.size() - 1; x >= i; x--) snek.remove(x);
+							snek.size = snek.size() - 1;
+							if (snek.size == 0) gameOver = true;
+							return;
+						}
 					}
 				}
 			}

@@ -20,13 +20,13 @@ public class Game extends JFrame implements ActionListener {
     private Snake p = new Snake();
     private Timer t = new Timer(60, this);
 
-    private Game(String difficulty) {
+    public Game(String difficulty) {
         getContentPane().setBackground(Color.WHITE);
         t.setActionCommand("Not");
         t.setDelay(difficulty(difficulty));
     }
 
-    private void play() {
+    public void play() {
         setTitle("Snake");
         setResizable(false);
         setSize(WIDTH, HEIGHT);
@@ -77,6 +77,7 @@ public class Game extends JFrame implements ActionListener {
         SnakeRect snek = new SnakeRect(), snek2 = new SnakeRect();
         Module piece = new Module();
         ArrayList<Module> obstacles = new ArrayList<>(100);
+        Module shrink = new Module();
 
         public Snake() {
             setPreferredSize(new Dimension(SSIZE, SSIZE));
@@ -192,6 +193,7 @@ public class Game extends JFrame implements ActionListener {
             piece.draw(g2, Color.red);
             for (Module m : obstacles)
                 m.draw(g2, Color.blue);
+            shrink.draw(g2, Color.green);
         }
 
         class SnakeRect extends ArrayList<Rectangle2D.Double> {
@@ -238,6 +240,16 @@ public class Game extends JFrame implements ActionListener {
                 if (get(0).intersects(piece)) {
                     addModule();
                     piece = new Module();
+                }
+                if (get(0).intersects(shrink)) {
+                    int x = snek.size() - 1;
+                    if (x==0) {
+                        gameOver = true;
+                        return;
+                    }
+                    snek.remove(x);
+                    size--;
+                    shrink = new Module();
                 }
             }
 
